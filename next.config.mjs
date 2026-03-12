@@ -8,3 +8,5 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
+// Verification: Force deployment after Pages setup
