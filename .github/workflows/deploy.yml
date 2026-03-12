@@ -32,6 +32,8 @@ jobs:
         
       - name: Build with Next.js (static export)
         run: npm run build
+        env:
+          GITHUB_PAGES: 'true'
         
       - name: Verify output folder
         run: ls -la out/
