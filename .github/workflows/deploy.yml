@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           
       - name: Setup Pages
@@ -33,10 +33,10 @@ jobs:
           static_site_generator: next
           
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-frozen-lockfile
         
       - name: Build with Next.js
-        run: npx --no-install next build
+        run: npm run build
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
