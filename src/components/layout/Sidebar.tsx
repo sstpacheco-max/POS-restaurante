@@ -76,7 +76,7 @@ export default function Sidebar() {
               <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div>
               Turno Abierto
             </div>
-            <Link href="/pos" className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-colors group">
+            <Link href="/pos?action=arqueo" className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-colors group">
               <Receipt size={20} className="group-hover:scale-110 transition-transform" />
               <span className="font-bold">Realizar Arqueo</span>
             </Link>
