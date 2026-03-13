@@ -19,25 +19,31 @@ export default function RootLayout({
         <script 
           dangerouslySetInnerHTML={{
             __html: `
+              const VERSION = '4.0.0';
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  // First, unregister any old service workers to clear stale CSS cache
+                  // Cache busting for the Service Worker registration itself
+                  const swUrl = 'sw.js?v=' + VERSION;
+                  
+                  // Check if we need to force a refresh
+                  const currentVersion = localStorage.getItem('punto_pos_app_version');
+                  if (currentVersion !== VERSION) {
+                    console.log('[App] New version detected, clearing caches...');
+                    localStorage.setItem('punto_pos_app_version', VERSION);
+                  }
+
                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
                     var unregisterPromises = registrations.map(function(r) { return r.unregister(); });
                     return Promise.all(unregisterPromises);
                   }).then(function() {
-                    // Then clear all caches to ensure fresh CSS/JS is loaded
                     if (window.caches) {
                       caches.keys().then(function(keys) {
                         return Promise.all(keys.map(function(key) { return caches.delete(key); }));
                       });
                     }
-                    // Re-register the updated service worker
-                    // Re-register the updated service worker
-                    // Using relative path to work with GH Pages basePath
-                    return navigator.serviceWorker.register('sw.js');
+                    return navigator.serviceWorker.register(swUrl);
                   }).then(function(registration) {
-                    console.log('[SW] Registered successfully with network-first strategy');
+                    console.log('[SW] Registered successfully v' + VERSION);
                   }).catch(function(err) {
                     console.warn('[SW] Registration failed:', err);
                   });

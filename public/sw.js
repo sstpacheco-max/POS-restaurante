@@ -2,7 +2,7 @@
 // STRATEGY: Network First for ALL requests.
 // This avoids stale CSS/JS being served after Next.js rebuilds assets.
 
-const CACHE_NAME = 'punto-pos-v3'; // Bumped version to bust old cache
+const CACHE_NAME = 'punto-pos-v4'; // Bumped version to v4 to force deep refresh
 
 self.addEventListener('install', (event) => {
   // Skip waiting so new SW activates immediately
