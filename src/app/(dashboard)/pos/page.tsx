@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, Plus, Minus, Trash2, CreditCard, Receipt, ShoppingCart } from "lucide-react";
 
 // Mock data
@@ -18,6 +19,8 @@ import { useAuth } from "@/lib/AuthContext";
 
 export default function POSPage() {
   const { user, activeSession, refreshSession, isInitialized } = useAuth() as any;
+  const searchParams = useSearchParams();
+  const action = searchParams.get("action");
   const [activeCategory, setActiveCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [cartsByTable, setCartsByTable] = useState<Record<number, any[]>>({});
@@ -64,7 +67,7 @@ export default function POSPage() {
     if (storedTables) {
        const parsedTables = JSON.parse(storedTables);
        setTables(parsedTables);
-       if (parsedTables.length > 0) setSelectedTable(parsedTables[0].id);
+       if (parsedTables.length > 0 && selectedTable === null) setSelectedTable(parsedTables[0].id);
     }
     const storedCarts = localStorage.getItem("punto_pos_carts");
     if (storedCarts) {
@@ -77,38 +80,44 @@ export default function POSPage() {
           setIsOpeningModalOpen(true);
        }
     }
-  }, [user, activeSession]);
+
+    // Trigger arqueo if requested via URL
+    if (action === "arqueo" && activeSession) {
+      setIsClosingModalOpen(true);
+    }
+  }, [user, activeSession, action]);
 
   useEffect(() => {
-    // Only save if it has keys or if it was loaded, to avoid overwriting with initial empty state
-    // We can just save it.
+    // Save carts
     localStorage.setItem("punto_pos_carts", JSON.stringify(cartsByTable));
     
-    // Update tables' billTotal in local storage
-    const storedTables = localStorage.getItem("punto_pos_tables");
-    if (storedTables) {
-      let currentTables = JSON.parse(storedTables);
-      let tablesChanged = false;
-      Object.entries(cartsByTable).forEach(([tableIdStr, tableCart]) => {
-          const tableId = Number(tableIdStr);
-          const tIndex = currentTables.findIndex((t:any) => t.id === tableId);
-          if (tIndex !== -1) {
-             const cartTotal = (tableCart as {product: any, quantity: number}[]).reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-             if (currentTables[tIndex].billTotal !== cartTotal) {
-                 currentTables[tIndex].billTotal = cartTotal > 0 ? cartTotal : undefined;
-                 if (cartTotal > 0 && currentTables[tIndex].status === "Libre") {
-                    currentTables[tIndex].status = "Ocupada";
-                    currentTables[tIndex].timeSeated = "0 min";
-                 }
-                 tablesChanged = true;
-             }
+    // Update tables' billTotal in current state
+    if (tables.length > 0) {
+      setTables(prevTables => {
+        let tablesChanged = false;
+        const newTables = prevTables.map(table => {
+          const tableCart = cartsByTable[table.id] || [];
+          const cartTotal = tableCart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+          
+          if (cartTotal > 0 && table.status === "Libre") {
+            tablesChanged = true;
+            return { ...table, status: "Ocupada" as any, timeSeated: "0 min", billTotal: cartTotal };
+          } else if (table.billTotal !== cartTotal && (table.status === "Ocupada" || table.status === "Por Pagar")) {
+            tablesChanged = true;
+            return { ...table, billTotal: cartTotal > 0 ? cartTotal : undefined };
           }
+          return table;
+        });
+        return tablesChanged ? newTables : prevTables;
       });
-      if (tablesChanged) {
-         localStorage.setItem("punto_pos_tables", JSON.stringify(currentTables));
-      }
     }
   }, [cartsByTable]);
+
+  useEffect(() => {
+    if (isInitialized && tables.length > 0) {
+      localStorage.setItem("punto_pos_tables", JSON.stringify(tables));
+    }
+  }, [tables, isInitialized]);
 
   const cart = selectedTable && cartsByTable[selectedTable] ? cartsByTable[selectedTable] : [];
 

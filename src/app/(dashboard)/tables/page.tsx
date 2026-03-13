@@ -54,11 +54,26 @@ export default function TablesPage() {
   };
 
   useEffect(() => {
-    const storedTables = localStorage.getItem("punto_pos_tables");
-    if (storedTables) {
-      setTables(JSON.parse(storedTables));
-    }
+    const loadTables = () => {
+      const storedTables = localStorage.getItem("punto_pos_tables");
+      if (storedTables) {
+        setTables(JSON.parse(storedTables));
+      }
+    };
+
+    loadTables();
     setIsLoaded(true);
+
+    // Listen for storage changes from other tabs/pages
+    window.addEventListener("storage", (e) => {
+      if (e.key === "punto_pos_tables") {
+        loadTables();
+      }
+    });
+
+    return () => {
+      window.removeEventListener("storage", loadTables);
+    };
   }, []);
 
   useEffect(() => {
