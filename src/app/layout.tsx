@@ -33,7 +33,9 @@ export default function RootLayout({
                       });
                     }
                     // Re-register the updated service worker
-                    return navigator.serviceWorker.register('/sw.js');
+                    // Re-register the updated service worker
+                    // Using relative path to work with GH Pages basePath
+                    return navigator.serviceWorker.register('sw.js');
                   }).then(function(registration) {
                     console.log('[SW] Registered successfully with network-first strategy');
                   }).catch(function(err) {

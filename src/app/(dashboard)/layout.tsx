@@ -9,20 +9,27 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout } = useAuth();
+  const { user, isInitialized } = useAuth() as any;
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    if (!isInitialized) return;
+
     if (!user) {
       router.push("/login");
-    } else if (user.role !== "admin" && (pathname === "/dashboard" || pathname.startsWith("/users") || pathname.startsWith("/inventory") || pathname.startsWith("/settings"))) {
-      // Prevent non-admins from accessing dashboard and admin pages
-      router.push("/pos");
+    } else {
+      // Normalize pathname (remove trailing slash for comparison)
+      const cleanPath = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+      
+      if (user.role !== "admin" && (cleanPath === "/dashboard" || cleanPath.startsWith("/users") || cleanPath.startsWith("/inventory") || cleanPath.startsWith("/settings"))) {
+        // Prevent non-admins from accessing dashboard and admin pages
+        router.push("/pos");
+      }
     }
-  }, [user, router, pathname]);
+  }, [user, isInitialized, router, pathname]);
 
-  if (!user) return null; // Prevent hydration mismatch Flash of Unauthenticated Content
+  if (!isInitialized || !user) return null; // Prevent hydration mismatch Flash of Unauthenticated Content
 
   return (
     <div className="flex bg-slate-50 min-h-screen">

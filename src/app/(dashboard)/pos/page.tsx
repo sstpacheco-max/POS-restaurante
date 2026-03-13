@@ -707,7 +707,7 @@ export default function POSPage() {
                   <span className="font-bold text-red-600">
                     {formatCOP(
                       (JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[])
-                        .filter(e => activeSession?.expenses?.includes(e.id))
+                        .filter(e => (activeSession?.expenses || []).includes(e.id))
                         .reduce((acc, e) => acc + e.amount, 0)
                     )}
                   </span>
@@ -725,10 +725,10 @@ export default function POSPage() {
                       {formatCOP(
                         (activeSession?.openingBase || 0) + 
                         (JSON.parse(localStorage.getItem("punto_pos_sales") || "[]") as any[])
-                          .filter(s => activeSession?.sales?.includes(s.id) && s.method === "Efectivo")
+                          .filter(s => (activeSession?.sales || []).includes(s.id) && s.method === "Efectivo")
                           .reduce((acc, s) => acc + s.total, 0) -
                         (JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[])
-                          .filter(e => activeSession?.expenses?.includes(e.id))
+                          .filter(e => (activeSession?.expenses || []).includes(e.id))
                           .reduce((acc, e) => acc + e.amount, 0) -
                         (activeSession?.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0)
                       )}
