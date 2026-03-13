@@ -3,8 +3,8 @@ import { AuthProvider } from "@/lib/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Punto POS - Gestión de Restaurante",
-  description: "Sistema de punto de venta premium para restaurantes y cafeterías",
+  title: "Restaurante La Española - Terminal de Transporte",
+  description: "Sistema de punto de venta premium para el Restaurante La Española",
   manifest: "/manifest.json",
 };
 

@@ -28,8 +28,8 @@ export default function Sidebar() {
           <UtensilsCrossed size={24} />
         </div>
         <div>
-          <h1 className="font-bold text-lg tracking-wide">Punto POS</h1>
-          <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Pro Edition</p>
+          <h1 className="font-bold text-lg tracking-wide leading-tight">La Española</h1>
+          <p className="text-[10px] text-slate-500 uppercase tracking-tighter font-bold">Terminal de Transporte</p>
         </div>
       </div>
       

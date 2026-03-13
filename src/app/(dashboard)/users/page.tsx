@@ -353,8 +353,8 @@ export default function UsersPage() {
                 {/* Header */}
                 <div className="header" style={{ display: "flex", justifyContent: "space-between", borderBottom: "3px solid #0f172a", paddingBottom: "10px", marginBottom: "16px" }}>
                   <div>
-                    <div style={{ fontSize: "20px", fontWeight: 800 }}>🏪 Punto POS</div>
-                    <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>Reporte de Cierre de Turno</div>
+                    <div style={{ fontSize: "20px", fontWeight: 800 }}>Restaurante La Española</div>
+                    <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>Terminal de Transporte</div>
                     <div style={{ fontSize: "11px", color: "#64748b", textTransform: "capitalize" }}>{reportDate}</div>
                   </div>
                   <div style={{ textAlign: "right", fontSize: "11px", color: "#64748b" }}>
@@ -554,7 +554,7 @@ export default function UsersPage() {
                     </div>
                   </div>
                 </div>
-                <p className="text-center text-xs text-slate-400 mt-6">Generado por Punto POS · {today.toLocaleString("es-CO")}</p>
+                <p className="text-center text-xs text-slate-400 mt-6">Generado por Restaurante La Española · {today.toLocaleString("es-CO")}</p>
               </div>
             </div>
           </div>
@@ -706,8 +706,9 @@ export default function UsersPage() {
             <div className="p-8 max-h-[70vh] overflow-y-auto" id="individual-session-report">
                <div className="header">
                  <div>
-                   <h1>Reporte de Turno</h1>
-                   <p style={{ color: '#64748b', fontSize: '14px' }}><b>Cajero:</b> {selectedSessionForReport.userName}</p>
+                   <h1 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '2px' }}>Restaurante La Española</h1>
+                   <p style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginBottom: '4px' }}>Terminal de Transporte</p>
+                   <p style={{ color: '#64748b', fontSize: '13px' }}><b>Cajero:</b> {selectedSessionForReport.userName}</p>
                  </div>
                  <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
                     <p><b>Apertura:</b> {new Date(selectedSessionForReport.openingTime).toLocaleString('es-CO')}</p>

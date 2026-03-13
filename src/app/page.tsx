@@ -23,11 +23,10 @@ export default function HomePage() {
         
         <div className="space-y-4">
           <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl drop-shadow-lg">
-            Punto POS <span className="text-blue-400 italic">Pro</span>
+            La Española <span className="text-blue-400 italic">Restaurante</span>
           </h1>
-          <p className="text-lg text-slate-300 max-w-md mx-auto drop-shadow-md">
-            Gestión inteligente para tu restaurante o cafetería. 
-            Multi-empresa, offline-first y biometría integrada.
+          <p className="text-lg text-slate-300 max-w-md mx-auto drop-shadow-md font-medium">
+            Terminal de Transporte - Gestión Inteligente
           </p>
         </div>
 
