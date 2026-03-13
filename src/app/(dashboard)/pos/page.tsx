@@ -17,7 +17,7 @@ const PRODUCTS = [
 import { useAuth } from "@/lib/AuthContext";
 
 export default function POSPage() {
-  const { user } = useAuth() as any;
+  const { user, activeSession, refreshSession, isInitialized } = useAuth() as any;
   const [activeCategory, setActiveCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [cartsByTable, setCartsByTable] = useState<Record<number, any[]>>({});
@@ -34,8 +34,7 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState<"Efectivo" | "Tarjeta" | "Transferencia">("Efectivo");
   const [amountTendered, setAmountTendered] = useState<string>("");
 
-  // Cash Session State
-  const [activeSession, setActiveSession] = useState<any>(null);
+  // Cash Session UI State (Session itself comes from useAuth)
   const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false);
   const [openingBase, setOpeningBase] = useState("");
   const [isWithdrawalMode, setIsWithdrawalMode] = useState(false);
@@ -73,16 +72,12 @@ export default function POSPage() {
     }
 
     // Check for active cash session
-    if (user) {
-      const sessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
-      const session = sessions.find((s: any) => s.userId === user.id && s.status === "open");
-      if (session) {
-        setActiveSession(session);
-      } else if (user.role?.toLowerCase() === "cajero") {
-        setIsOpeningModalOpen(true);
-      }
+    if (user && isInitialized) {
+       if (!activeSession && user.role?.toLowerCase() === "cajero") {
+          setIsOpeningModalOpen(true);
+       }
     }
-  }, [user]);
+  }, [user, activeSession]);
 
   useEffect(() => {
     // Only save if it has keys or if it was loaded, to avoid overwriting with initial empty state
@@ -428,7 +423,7 @@ export default function POSPage() {
                      if (sessionIndex !== -1) {
                         storedSessions[sessionIndex].sales = [...(storedSessions[sessionIndex].sales || []), newSale.id];
                         localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
-                        setActiveSession(storedSessions[sessionIndex]);
+                        refreshSession();
                      }
                    }
 
@@ -583,7 +578,7 @@ export default function POSPage() {
                        };
                        storedSessions[sessionIndex].withdrawals = [...(storedSessions[sessionIndex].withdrawals || []), withdrawal];
                        localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
-                       setActiveSession(storedSessions[sessionIndex]);
+                       refreshSession();
                        alert(`Retiro de ${formatCOP(withdrawal.amount)} registrado exitosamente.`);
                      }
                      setWithdrawalForm({ amount: "", leftInRegister: "", managerPassword: "" });
@@ -608,7 +603,7 @@ export default function POSPage() {
                         if (sessionIndex !== -1) {
                            storedSessions[sessionIndex].expenses = [...(storedSessions[sessionIndex].expenses || []), newExpense.id];
                            localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
-                           setActiveSession(storedSessions[sessionIndex]);
+                           refreshSession();
                         }
                      }
 
@@ -668,7 +663,7 @@ export default function POSPage() {
                     const sessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
                     sessions.push(newSession);
                     localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(sessions));
-                    setActiveSession(newSession);
+                    refreshSession();
                     setIsOpeningModalOpen(false);
                   }}
                   className="w-full py-4 bg-primary text-white rounded-2xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/30 active:scale-[0.98] disabled:opacity-50"
@@ -787,7 +782,7 @@ export default function POSPage() {
                   
                   alert("Turno cerrado exitosamente. El reporte ha sido guardado.");
                   setIsClosingModalOpen(false);
-                  setActiveSession(null);
+                  refreshSession();
                   setIsOpeningModalOpen(true); // Direct to opening for next cashier
                   setActualCashInRegister("");
                 }}
