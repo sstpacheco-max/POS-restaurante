@@ -45,6 +45,10 @@ export default function POSPage() {
   const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
   const [actualCashInRegister, setActualCashInRegister] = useState("");
 
+  const handlePrintReport = () => {
+    window.print();
+  };
+
   const formatCOP = (value: number) => {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
   };
@@ -164,7 +168,7 @@ export default function POSPage() {
   const subtotal = total - tax;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)]">
+    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)] print:hidden">
       
       {/* Products Section */}
       <div className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -689,11 +693,21 @@ export default function POSPage() {
       {isClosingModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 print:hidden">
               <h3 className="font-bold text-slate-800">Cierre de Turno y Arqueo</h3>
               <button onClick={() => setIsClosingModalOpen(false)} className="text-slate-400 hover:text-slate-600">×</button>
             </div>
             <div className="p-6 overflow-y-auto space-y-6">
+              {/* Branded Header for Print */}
+              <div className="hidden print:block text-center space-y-2 mb-8">
+                <h1 className="text-2xl font-black uppercase tracking-tight">Restaurante La Española</h1>
+                <p className="text-sm font-bold">Terminal de Transporte</p>
+                <div className="text-xs text-slate-500 flex justify-between px-4 mt-4">
+                   <span>Fecha: {new Date().toLocaleDateString()}</span>
+                   <span>Cajero: {user?.name}</span>
+                </div>
+                <div className="border-b-2 border-slate-900 mx-4 pt-2"></div>
+              </div>
               {/* Summary */}
               <div className="space-y-3">
                 <div className="flex justify-between text-sm py-2 border-b border-slate-100">
@@ -756,49 +770,58 @@ export default function POSPage() {
                 />
               </div>
 
-              <button 
-                onClick={() => {
-                  if (!activeSession) {
-                    alert("No hay sesión activa para cerrar.");
-                    return;
-                  }
+              <div className="flex gap-3 print:hidden">
+                <button 
+                  onClick={handlePrintReport}
+                  className="flex-1 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors border border-slate-200 flex items-center justify-center gap-2"
+                >
+                  <Receipt size={20} />
+                  Imprimir
+                </button>
+                <button 
+                  onClick={() => {
+                    if (!activeSession) {
+                      alert("No hay sesión activa para cerrar.");
+                      return;
+                    }
 
-                  const sales = JSON.parse(localStorage.getItem("punto_pos_sales") || "[]") as any[];
-                  const expenses = JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[];
-                  
-                  const expected = (activeSession.openingBase || 0) + 
-                    sales.filter(s => (activeSession.sales || []).includes(s.id) && s.method === "Efectivo")
-                      .reduce((acc, s) => acc + s.total, 0) -
-                    expenses.filter(e => (activeSession.expenses || []).includes(e.id))
-                      .reduce((acc, e) => acc + e.amount, 0) -
-                    (activeSession.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0);
-                  
-                  const diff = Number(actualCashInRegister) - expected;
-                  
-                  if (diff !== 0) {
-                     if (!confirm(`Hay un descuadre de ${formatCOP(diff)}. ¿Deseas cerrar la caja de todos modos?`)) return;
-                  }
+                    const sales = JSON.parse(localStorage.getItem("punto_pos_sales") || "[]") as any[];
+                    const expenses = JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[];
+                    
+                    const expected = (activeSession.openingBase || 0) + 
+                      sales.filter(s => (activeSession.sales || []).includes(s.id) && s.method === "Efectivo")
+                        .reduce((acc, s) => acc + s.total, 0) -
+                      expenses.filter(e => (activeSession.expenses || []).includes(e.id))
+                        .reduce((acc, e) => acc + e.amount, 0) -
+                      (activeSession.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0);
+                    
+                    const diff = Number(actualCashInRegister) - expected;
+                    
+                    if (diff !== 0) {
+                       if (!confirm(`Hay un descuadre de ${formatCOP(diff)}. ¿Deseas cerrar la caja de todos modos?`)) return;
+                    }
 
-                  const storedSessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
-                  const sessionIndex = storedSessions.findIndex((s: any) => s.id === activeSession.id);
-                  if (sessionIndex !== -1) {
-                    storedSessions[sessionIndex].status = "closed";
-                    storedSessions[sessionIndex].closingTime = new Date().toISOString();
-                    storedSessions[sessionIndex].closingAmount = Number(actualCashInRegister);
-                    storedSessions[sessionIndex].expectedAmount = expected;
-                    localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
-                  }
-                  
-                  alert("Turno cerrado exitosamente. El reporte ha sido guardado.");
-                  setIsClosingModalOpen(false);
-                  refreshSession();
-                  setIsOpeningModalOpen(true); // Direct to opening for next cashier
-                  setActualCashInRegister("");
-                }}
-                className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg"
-              >
-                Cerrar Turno e Informar
-              </button>
+                    const storedSessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
+                    const sessionIndex = storedSessions.findIndex((s: any) => s.id === activeSession.id);
+                    if (sessionIndex !== -1) {
+                      storedSessions[sessionIndex].status = "closed";
+                      storedSessions[sessionIndex].closingTime = new Date().toISOString();
+                      storedSessions[sessionIndex].closingAmount = Number(actualCashInRegister);
+                      storedSessions[sessionIndex].expectedAmount = expected;
+                      localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
+                    }
+                    
+                    alert("Turno cerrado exitosamente. El reporte ha sido guardado.");
+                    setIsClosingModalOpen(false);
+                    refreshSession();
+                    setIsOpeningModalOpen(true); // Direct to opening for next cashier
+                    setActualCashInRegister("");
+                  }}
+                  className="flex-[2] py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg"
+                >
+                  Cerrar Turno e Informar
+                </button>
+              </div>
             </div>
           </div>
         </div>
