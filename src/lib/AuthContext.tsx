@@ -50,7 +50,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     setUser(mockUser);
     localStorage.setItem("punto_pos_user", JSON.stringify(mockUser));
-    router.push("/dashboard"); // Default landing after login
+    
+    // Smarter redirect based on role
+    if (role === "admin") {
+      router.push("/dashboard");
+    } else {
+      router.push("/pos");
+    }
   };
 
   const logout = () => {

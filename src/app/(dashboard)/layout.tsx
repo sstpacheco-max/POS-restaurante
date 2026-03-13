@@ -19,10 +19,23 @@ export default function DashboardLayout({
     if (!user) {
       router.push("/login");
     } else {
-      // Normalize pathname (remove trailing slash for comparison)
-      const cleanPath = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+      // Normalize pathname for GitHub Pages (strip /POS-restaurante if present)
+      const basePath = "/POS-restaurante";
+      let internalPath = pathname;
+      if (internalPath.startsWith(basePath)) {
+        internalPath = internalPath.slice(basePath.length);
+      }
       
-      if (user.role !== "admin" && (cleanPath === "/dashboard" || cleanPath.startsWith("/users") || cleanPath.startsWith("/inventory") || cleanPath.startsWith("/settings"))) {
+      // Remove trailing slash
+      const cleanPath = internalPath.endsWith("/") ? internalPath.slice(0, -1) : internalPath;
+      
+      if (user.role?.toLowerCase() !== "admin" && (
+        cleanPath === "" || 
+        cleanPath === "/dashboard" || 
+        cleanPath.startsWith("/users") || 
+        cleanPath.startsWith("/inventory") || 
+        cleanPath.startsWith("/settings")
+      )) {
         // Prevent non-admins from accessing dashboard and admin pages
         router.push("/pos");
       }
