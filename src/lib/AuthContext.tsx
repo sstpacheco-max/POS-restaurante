@@ -13,7 +13,9 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (role: Role) => void;
+  isInitialized: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -22,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -34,28 +37,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsInitialized(true);
   }, []);
 
-  useEffect(() => {
-    // Protect routes
-    if (!user && pathname !== "/" && pathname !== "/login") {
-       // Avoid redirecting immediately on hydration if we haven't checked storage yet, 
-       // but for simplicity in this mock, we let the protected layout handle redirects.
-    }
-  }, [user, pathname]);
+  const login = async (email: string, password: string): Promise<boolean> => {
+    setError(null);
+    try {
+      // Get users from localStorage (populated in users page)
+      const storedUsers = localStorage.getItem("punto_pos_users");
+      const users = storedUsers ? JSON.parse(storedUsers) : [];
+      
+      const foundUser = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
 
-  const login = (role: Role) => {
-    const mockUser: User = {
-      id: "1",
-      name: role === "admin" ? "Admin Supremo" : role === "cajero" ? "Juan Cajero" : "Pedro Mesero",
-      role,
-    };
-    setUser(mockUser);
-    localStorage.setItem("punto_pos_user", JSON.stringify(mockUser));
-    
-    // Smarter redirect based on role
-    if (role === "admin") {
-      router.push("/dashboard");
-    } else {
-      router.push("/pos");
+      if (!foundUser) {
+        setError("Usuario no encontrado.");
+        return false;
+      }
+
+      if (foundUser.password !== password) {
+        setError("Contraseña incorrecta.");
+        return false;
+      }
+
+      if (foundUser.status !== "Activo") {
+        setError("Tu cuenta está inactiva. Contacta al administrador.");
+        return false;
+      }
+
+      const role = foundUser.role.toLowerCase() as Role;
+      const sessionUser: User = {
+        id: String(foundUser.id),
+        name: foundUser.name,
+        role: role,
+      };
+
+      setUser(sessionUser);
+      localStorage.setItem("punto_pos_user", JSON.stringify(sessionUser));
+      
+      // Direct landing based on role
+      if (role === "admin") {
+        router.push("/dashboard");
+      } else {
+        router.push("/pos");
+      }
+      return true;
+    } catch (e) {
+      setError("Error al iniciar sesión. Inténtalo de nuevo.");
+      return false;
     }
   };
 
