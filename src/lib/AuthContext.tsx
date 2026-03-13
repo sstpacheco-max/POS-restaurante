@@ -24,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const INITIAL_USERS = [
   { id: "1", name: "Carlos López", email: "carlos@pospro.com", role: "Admin", status: "Activo", lastLogin: "Hace 2 horas", password: "123", biometricEnabled: true, cashBase: 0 },
   { id: "2", name: "Ana Gómez", email: "ana@pospro.com", role: "Cajero", status: "Activo", lastLogin: "Hace 5 mins", password: "123", biometricEnabled: false, cashBase: 200000 },
+  { id: "3", name: "Pacheco Max", email: "sst.pacheco@gmail.com", role: "Admin", status: "Activo", lastLogin: "Hace poco", password: "123", biometricEnabled: true, cashBase: 0 },
 ];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
