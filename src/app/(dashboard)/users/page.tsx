@@ -28,6 +28,7 @@ export default function UsersPage() {
   const [formData, setFormData] = useState<any>({ status: "Activo", role: "Cajero", biometricEnabled: false, cashBase: "" });
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [salesData, setSalesData] = useState<any[]>([]);
+  const [cashSessions, setCashSessions] = useState<any[]>([]);
   const [cashBaseGlobal, setCashBaseGlobal] = useState(0);
   const [cashBaseInput, setCashBaseInput] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
@@ -39,6 +40,9 @@ export default function UsersPage() {
 
     const storedSales = localStorage.getItem("punto_pos_sales");
     if (storedSales) setSalesData(JSON.parse(storedSales));
+
+    const storedSessions = localStorage.getItem("punto_pos_cash_sessions");
+    if (storedSessions) setCashSessions(JSON.parse(storedSessions));
 
     const base = Number(localStorage.getItem("punto_pos_cash_base") || 0);
     setCashBaseGlobal(base);
@@ -442,6 +446,58 @@ export default function UsersPage() {
                             <td className="px-4 py-2 text-right text-emerald-600 font-medium">{formatCOP(data.cash)}</td>
                             <td className="px-4 py-2 text-right text-blue-600 font-medium">{formatCOP(data.card + data.transfer)}</td>
                             <td className="px-4 py-2 text-right font-bold text-slate-900">{formatCOP(data.sales + base)}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+
+                {/* Cash Sessions History */}
+                <h2 style={{ fontSize: "13px", fontWeight: 700, margin: "16px 0 6px", paddingBottom: "3px", borderBottom: "2px solid #e2e8f0" }}>📅 Historial de Sesiones de Caja (Hoy)</h2>
+                <table className="w-full text-sm mb-4">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-4 py-2 text-left">Cajero / Hora</th>
+                      <th className="px-4 py-2 text-right">Base</th>
+                      <th className="px-4 py-2 text-right">Ventas/Efect.</th>
+                      <th className="px-4 py-2 text-right">Retiros</th>
+                      <th className="px-4 py-2 text-right">Arqueo</th>
+                      <th className="px-4 py-2 text-right">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cashSessions.filter(s => new Date(s.openingTime).toDateString() === todayStr).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-slate-400 italic">No hay sesiones hoy</td>
+                      </tr>
+                    ) : (
+                      cashSessions.filter(s => new Date(s.openingTime).toDateString() === todayStr).map((s) => {
+                        const sessSales = salesData.filter(sale => s.sales?.includes(sale.id) && sale.method === "Efectivo").reduce((acc, sale) => acc + sale.total, 0);
+                        const sessWithdrawals = (s.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0);
+                        const expected = s.openingBase + sessSales - sessWithdrawals;
+                        return (
+                          <tr key={s.id} className="border-b border-slate-100">
+                            <td className="px-4 py-2">
+                              <div className="font-semibold text-slate-800">{s.userName}</div>
+                              <div className="text-[10px] text-slate-500">{new Date(s.openingTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {s.closingTime ? new Date(s.closingTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "Abierta"}</div>
+                            </td>
+                            <td className="px-4 py-2 text-right font-medium text-slate-700">{formatCOP(s.openingBase)}</td>
+                            <td className="px-4 py-2 text-right font-medium text-emerald-600">{formatCOP(sessSales)}</td>
+                            <td className="px-4 py-2 text-right font-medium text-orange-600">{formatCOP(sessWithdrawals)}</td>
+                            <td className="px-4 py-2 text-right">
+                              <div className={`font-bold ${s.status === 'closed' ? (s.closingAmount === s.expectedAmount ? "text-slate-900" : "text-red-600") : "text-blue-600"}`}>
+                                {s.status === 'closed' ? formatCOP(s.closingAmount) : "En proceso"}
+                              </div>
+                              {s.status === 'closed' && s.closingAmount !== s.expectedAmount && (
+                                <div className="text-[9px] font-bold uppercase">Dif: {formatCOP(s.closingAmount - s.expectedAmount)}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'closed' ? "bg-slate-100 text-slate-600" : "bg-blue-100 text-blue-700"}`}>
+                                 {s.status === 'closed' ? "Cerrada" : "Abierta"}
+                               </span>
+                            </td>
                           </tr>
                         );
                       })

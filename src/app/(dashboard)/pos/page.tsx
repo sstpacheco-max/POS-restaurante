@@ -31,6 +31,15 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState<"Efectivo" | "Tarjeta" | "Transferencia">("Efectivo");
   const [amountTendered, setAmountTendered] = useState<string>("");
 
+  // Cash Session State
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false);
+  const [openingBase, setOpeningBase] = useState("");
+  const [isWithdrawalMode, setIsWithdrawalMode] = useState(false);
+  const [withdrawalForm, setWithdrawalForm] = useState({ amount: "", leftInRegister: "", managerPassword: "" });
+  const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
+  const [actualCashInRegister, setActualCashInRegister] = useState("");
+
   const formatCOP = (value: number) => {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
   };
@@ -58,6 +67,19 @@ export default function POSPage() {
     const storedCarts = localStorage.getItem("punto_pos_carts");
     if (storedCarts) {
        setCartsByTable(JSON.parse(storedCarts));
+    }
+
+    // Check for active cash session
+    const storedUser = localStorage.getItem("punto_pos_user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      const sessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
+      const session = sessions.find((s: any) => s.userId === user.id && s.status === "open");
+      if (session) {
+        setActiveSession(session);
+      } else if (user.role === "cajero") {
+        setIsOpeningModalOpen(true);
+      }
     }
   }, []);
 
@@ -293,6 +315,13 @@ export default function POSPage() {
               Cobrar
             </button>
           </div>
+          <button 
+            onClick={() => setIsClosingModalOpen(true)}
+            className="w-full mt-3 flex items-center justify-center gap-2 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl hover:bg-slate-200 transition-colors border border-slate-200"
+          >
+            <Receipt size={16} />
+            Cierre de Caja
+          </button>
         </div>
       </div>
 
@@ -376,7 +405,7 @@ export default function POSPage() {
                    // Save the sale to history
                    const storedSales = localStorage.getItem("punto_pos_sales");
                    const sales = storedSales ? JSON.parse(storedSales) : [];
-                   sales.push({
+                   const newSale = {
                      id: Date.now(),
                      date: new Date().toISOString(),
                      total: total,
@@ -387,8 +416,20 @@ export default function POSPage() {
                        quantity: item.quantity,
                        category: item.product.category
                      }))
-                   });
+                   };
+                   sales.push(newSale);
                    localStorage.setItem("punto_pos_sales", JSON.stringify(sales));
+
+                   // Link to current session
+                   if (activeSession) {
+                     const storedSessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
+                     const sessionIndex = storedSessions.findIndex((s: any) => s.id === activeSession.id);
+                     if (sessionIndex !== -1) {
+                        storedSessions[sessionIndex].sales = [...(storedSessions[sessionIndex].sales || []), newSale.id];
+                        localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
+                        setActiveSession(storedSessions[sessionIndex]);
+                     }
+                   }
 
                    let paymentMessage = `¡Cobro de ${formatCOP(total)} procesado con éxito via ${paymentMethod}!`;
                    if (alerts.length > 0) {
@@ -435,63 +476,314 @@ export default function POSPage() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-red-100 flex justify-between items-center bg-red-50">
-              <h3 className="font-bold text-red-800 flex items-center gap-2"><Minus size={18} /> Salida de Caja Variable</h3>
-              <button onClick={() => { setIsExpenseModalOpen(false); setExpenseForm({name: "", amount: ""}); }} className="text-red-400 hover:text-red-600">×</button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setIsWithdrawalMode(false)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${!isWithdrawalMode ? "bg-red-600 text-white" : "bg-red-100 text-red-600"}`}
+                >
+                  Gasto Variable
+                </button>
+                <button 
+                  onClick={() => setIsWithdrawalMode(true)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${isWithdrawalMode ? "bg-red-600 text-white" : "bg-red-100 text-red-600"}`}
+                >
+                  Retiro Gerente
+                </button>
+              </div>
+              <button onClick={() => { setIsExpenseModalOpen(false); setExpenseForm({name: "", amount: ""}); setIsWithdrawalMode(false); }} className="text-red-400 hover:text-red-600">×</button>
             </div>
             <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Motivo / Nombre del Gasto</label>
-                <input 
-                  type="text"
-                  value={expenseForm.name}
-                  onChange={e => setExpenseForm({...expenseForm, name: e.target.value})}
-                  placeholder="Ej: Pago de hielo, Transporte..."
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Monto a retirar ($)</label>
-                <input 
-                  type="number"
-                  value={expenseForm.amount}
-                  onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})}
-                  placeholder="Ej: 15000"
-                  className="w-full text-xl p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
-                />
-              </div>
+              {!isWithdrawalMode ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Motivo / Nombre del Gasto</label>
+                    <input 
+                      type="text"
+                      value={expenseForm.name}
+                      onChange={e => setExpenseForm({...expenseForm, name: e.target.value})}
+                      placeholder="Ej: Pago de hielo, Transporte..."
+                      className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Monto a retirar ($)</label>
+                    <input 
+                      type="number"
+                      value={expenseForm.amount}
+                      onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})}
+                      placeholder="Ej: 15000"
+                      className="w-full text-xl p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Monto del Retiro ($)</label>
+                    <input 
+                      type="number"
+                      value={withdrawalForm.amount}
+                      onChange={e => setWithdrawalForm({...withdrawalForm, amount: e.target.value})}
+                      placeholder="Ej: 500000"
+                      className="w-full text-xl p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">¿Cuánto dinero queda en caja? ($)</label>
+                    <input 
+                      type="number"
+                      value={withdrawalForm.leftInRegister}
+                      onChange={e => setWithdrawalForm({...withdrawalForm, leftInRegister: e.target.value})}
+                      placeholder="Ej: 200000"
+                      className="w-full text-xl p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">PIN Administrador/Gerente</label>
+                    <input 
+                      type="password"
+                      value={withdrawalForm.managerPassword}
+                      onChange={e => setWithdrawalForm({...withdrawalForm, managerPassword: e.target.value})}
+                      placeholder="****"
+                      className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="bg-orange-50 p-3 rounded-lg border border-orange-100 flex gap-2 items-start mt-2">
                  <span className="text-orange-500 mt-0.5">⚠️</span>
-                 <p className="text-xs text-orange-800 font-medium">Este dinero se descontará de los ingresos netos de hoy y se registrará como Gasto Variable para el Punto de Equilibrio.</p>
+                 <p className="text-xs text-orange-800 font-medium">{isWithdrawalMode ? "Este retiro se registrará bajo la supervisión del gerente y afectará el arqueo final." : "Este dinero se descontará de los ingresos netos de hoy y se registrará como Gasto Variable."}</p>
               </div>
 
               <button 
-                disabled={!expenseForm.name || !expenseForm.amount || Number(expenseForm.amount) <= 0}
+                disabled={isWithdrawalMode ? (!withdrawalForm.amount || !withdrawalForm.managerPassword) : (!expenseForm.name || !expenseForm.amount || Number(expenseForm.amount) <= 0)}
                 onClick={() => {
-                   // Add to expenses
-                   const storedExpenses = localStorage.getItem("punto_pos_expenses_v2");
-                   const expenses = storedExpenses ? JSON.parse(storedExpenses) : [];
-                   
-                   const newExpense = {
-                     id: Date.now(),
-                     name: expenseForm.name,
-                     amount: Number(expenseForm.amount),
-                     type: "Variable",
-                     date: new Date().toISOString() // Important for today's filtering
-                   };
-                   
-                   expenses.push(newExpense);
-                   localStorage.setItem("punto_pos_expenses_v2", JSON.stringify(expenses));
+                   if (isWithdrawalMode) {
+                     // Verify manager password (mock check against '123' or users)
+                     const users = JSON.parse(localStorage.getItem("punto_pos_users") || "[]");
+                     const manager = users.find((u: any) => (u.role === "Admin" || u.role === "admin") && u.password === withdrawalForm.managerPassword);
+                     
+                     if (!manager) {
+                       alert("PIN de Gerente incorrecto.");
+                       return;
+                     }
 
-                   alert(`Gasto variable de ${formatCOP(newExpense.amount)} guardado exitosamente.`);
-                   
+                     const storedSessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
+                     const sessionIndex = storedSessions.findIndex((s: any) => s.id === activeSession?.id);
+                     
+                     if (sessionIndex !== -1) {
+                       const withdrawal = {
+                         amount: Number(withdrawalForm.amount),
+                         leftInRegister: Number(withdrawalForm.leftInRegister) || 0,
+                         managerId: manager.id,
+                         managerName: manager.name,
+                         time: new Date().toISOString()
+                       };
+                       storedSessions[sessionIndex].withdrawals = [...(storedSessions[sessionIndex].withdrawals || []), withdrawal];
+                       localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
+                       setActiveSession(storedSessions[sessionIndex]);
+                       alert(`Retiro de ${formatCOP(withdrawal.amount)} registrado exitosamente.`);
+                     }
+                     setWithdrawalForm({ amount: "", leftInRegister: "", managerPassword: "" });
+                   } else {
+                     // Existing expense logic...
+                     const storedExpenses = localStorage.getItem("punto_pos_expenses_v2");
+                     const expenses = storedExpenses ? JSON.parse(storedExpenses) : [];
+                     const newExpense = {
+                       id: Date.now(),
+                       name: expenseForm.name,
+                       amount: Number(expenseForm.amount),
+                       type: "Variable",
+                       date: new Date().toISOString()
+                     };
+                     expenses.push(newExpense);
+                     localStorage.setItem("punto_pos_expenses_v2", JSON.stringify(expenses));
+
+                     // Link to active session if exists
+                     if (activeSession) {
+                        const storedSessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
+                        const sessionIndex = storedSessions.findIndex((s: any) => s.id === activeSession.id);
+                        if (sessionIndex !== -1) {
+                           storedSessions[sessionIndex].expenses = [...(storedSessions[sessionIndex].expenses || []), newExpense.id];
+                           localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
+                           setActiveSession(storedSessions[sessionIndex]);
+                        }
+                     }
+
+                     alert(`Gasto variable de ${formatCOP(newExpense.amount)} guardado exitosamente.`);
+                   }
                    setIsExpenseModalOpen(false);
                    setExpenseForm({name: "", amount: ""});
+                   setIsWithdrawalMode(false);
                 }}
                 className="w-full py-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors mt-4 shadow-lg shadow-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Confirmar Salida
+                {isWithdrawalMode ? "Confirmar Retiro" : "Confirmar Salida"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Opening Cash Modal */}
+      {isOpeningModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+            <div className="p-8 text-center space-y-6">
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                <CreditCard size={40} className="text-primary" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">Apertura de Caja</h2>
+                <p className="text-slate-500 mt-2">Por favor ingresa la base de dinero con la que inicias el turno.</p>
+              </div>
+              <div className="space-y-4">
+                <input 
+                  type="number"
+                  value={openingBase}
+                  onChange={e => setOpeningBase(e.target.value)}
+                  placeholder="Ej. 200000"
+                  className="w-full text-center text-3xl font-bold p-4 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                />
+                <button 
+                  disabled={!openingBase || Number(openingBase) < 0}
+                  onClick={() => {
+                    const storedUser = JSON.parse(localStorage.getItem("punto_pos_user") || "{}");
+                    const newSession = {
+                      id: String(Date.now()),
+                      userId: storedUser.id,
+                      userName: storedUser.name,
+                      openingTime: new Date().toISOString(),
+                      openingBase: Number(openingBase),
+                      status: "open",
+                      withdrawals: [],
+                      sales: [],
+                      expenses: []
+                    };
+                    const sessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
+                    sessions.push(newSession);
+                    localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(sessions));
+                    setActiveSession(newSession);
+                    setIsOpeningModalOpen(false);
+                  }}
+                  className="w-full py-4 bg-primary text-white rounded-2xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/30 active:scale-[0.98] disabled:opacity-50"
+                >
+                  Abrir Caja
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Closing Cash Modal */}
+      {isClosingModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-800">Cierre de Turno y Arqueo</h3>
+              <button onClick={() => setIsClosingModalOpen(false)} className="text-slate-400 hover:text-slate-600">×</button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-6">
+              {/* Summary */}
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Base de Apertura</span>
+                  <span className="font-bold">{formatCOP(activeSession?.openingBase || 0)}</span>
+                </div>
+                <div className="flex justify-between text-sm py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Ventas en Efectivo (+)</span>
+                  <span className="font-bold text-emerald-600">
+                    {formatCOP(
+                      (JSON.parse(localStorage.getItem("punto_pos_sales") || "[]") as any[])
+                        .filter(s => activeSession?.sales?.includes(s.id) && s.method === "Efectivo")
+                        .reduce((acc, s) => acc + s.total, 0)
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Gastos (-)</span>
+                  <span className="font-bold text-red-600">
+                    {formatCOP(
+                      (JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[])
+                        .filter(e => activeSession?.expenses?.includes(e.id))
+                        .reduce((acc, e) => acc + e.amount, 0)
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Retiros de Gerente (-)</span>
+                  <span className="font-bold text-orange-600">
+                    {formatCOP((activeSession?.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded-xl mt-4">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Efectivo Esperado</p>
+                    <p className="text-2xl font-black">
+                      {formatCOP(
+                        (activeSession?.openingBase || 0) + 
+                        (JSON.parse(localStorage.getItem("punto_pos_sales") || "[]") as any[])
+                          .filter(s => activeSession?.sales?.includes(s.id) && s.method === "Efectivo")
+                          .reduce((acc, s) => acc + s.total, 0) -
+                        (JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[])
+                          .filter(e => activeSession?.expenses?.includes(e.id))
+                          .reduce((acc, e) => acc + e.amount, 0) -
+                        (activeSession?.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0)
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Efectivo Real en Caja ($)</label>
+                <input 
+                  type="number"
+                  value={actualCashInRegister}
+                  onChange={e => setActualCashInRegister(e.target.value)}
+                  placeholder="Ej. 150000"
+                  className="w-full text-2xl p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-center font-bold"
+                />
+              </div>
+
+              <button 
+                onClick={() => {
+                  const expected = (activeSession?.openingBase || 0) + 
+                    (JSON.parse(localStorage.getItem("punto_pos_sales") || "[]") as any[])
+                      .filter(s => activeSession?.sales?.includes(s.id) && s.method === "Efectivo")
+                      .reduce((acc, s) => acc + s.total, 0) -
+                    (JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[])
+                      .filter(e => activeSession?.expenses?.includes(e.id))
+                      .reduce((acc, e) => acc + e.amount, 0) -
+                    (activeSession?.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0);
+                  
+                  const diff = Number(actualCashInRegister) - expected;
+                  
+                  if (diff !== 0) {
+                     if (!confirm(`Hay un descuadre de ${formatCOP(diff)}. ¿Deseas cerrar la caja de todos modos?`)) return;
+                  }
+
+                  const storedSessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
+                  const sessionIndex = storedSessions.findIndex((s: any) => s.id === activeSession.id);
+                  if (sessionIndex !== -1) {
+                    storedSessions[sessionIndex].status = "closed";
+                    storedSessions[sessionIndex].closingTime = new Date().toISOString();
+                    storedSessions[sessionIndex].closingAmount = Number(actualCashInRegister);
+                    storedSessions[sessionIndex].expectedAmount = expected;
+                    localStorage.setItem("punto_pos_cash_sessions", JSON.stringify(storedSessions));
+                  }
+                  
+                  alert("Turno cerrado exitosamente. El reporte ha sido guardado.");
+                  setIsClosingModalOpen(false);
+                  setActiveSession(null);
+                  setIsOpeningModalOpen(true); // Direct to opening for next cashier
+                  setActualCashInRegister("");
+                }}
+                className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg"
+              >
+                Cerrar Turno e Informar
               </button>
             </div>
           </div>
