@@ -21,6 +21,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const INITIAL_USERS = [
+  { id: "1", name: "Carlos López", email: "carlos@pospro.com", role: "Admin", status: "Activo", lastLogin: "Hace 2 horas", password: "123", biometricEnabled: true, cashBase: 0 },
+  { id: "2", name: "Ana Gómez", email: "ana@pospro.com", role: "Cajero", status: "Activo", lastLogin: "Hace 5 mins", password: "123", biometricEnabled: false, cashBase: 200000 },
+];
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -34,6 +39,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
+
+    // Seed default users if they don't exist
+    const storedUsers = localStorage.getItem("punto_pos_users");
+    if (!storedUsers) {
+      localStorage.setItem("punto_pos_users", JSON.stringify(INITIAL_USERS));
+    }
+
     setIsInitialized(true);
   }, []);
 
