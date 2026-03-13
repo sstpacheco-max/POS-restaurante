@@ -14,7 +14,10 @@ const PRODUCTS = [
   { id: 6, name: "Jugo Natural (12oz)", price: 5000, category: "Bebidas", image: "🥤", stock: true },
 ];
 
+import { useAuth } from "@/lib/AuthContext";
+
 export default function POSPage() {
+  const { user } = useAuth() as any;
   const [activeCategory, setActiveCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [cartsByTable, setCartsByTable] = useState<Record<number, any[]>>({});
@@ -70,18 +73,16 @@ export default function POSPage() {
     }
 
     // Check for active cash session
-    const storedUser = localStorage.getItem("punto_pos_user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
+    if (user) {
       const sessions = JSON.parse(localStorage.getItem("punto_pos_cash_sessions") || "[]");
       const session = sessions.find((s: any) => s.userId === user.id && s.status === "open");
       if (session) {
         setActiveSession(session);
-      } else if (user.role === "cajero") {
+      } else if (user.role?.toLowerCase() === "cajero") {
         setIsOpeningModalOpen(true);
       }
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     // Only save if it has keys or if it was loaded, to avoid overwriting with initial empty state
@@ -649,11 +650,14 @@ export default function POSPage() {
                 <button 
                   disabled={!openingBase || Number(openingBase) < 0}
                   onClick={() => {
-                    const storedUser = JSON.parse(localStorage.getItem("punto_pos_user") || "{}");
+                    if (!user) {
+                      alert("Error: No hay usuario autenticado.");
+                      return;
+                    }
                     const newSession = {
                       id: String(Date.now()),
-                      userId: storedUser.id,
-                      userName: storedUser.name,
+                      userId: user.id,
+                      userName: user.name,
                       openingTime: new Date().toISOString(),
                       openingBase: Number(openingBase),
                       status: "open",
@@ -750,14 +754,20 @@ export default function POSPage() {
 
               <button 
                 onClick={() => {
-                  const expected = (activeSession?.openingBase || 0) + 
-                    (JSON.parse(localStorage.getItem("punto_pos_sales") || "[]") as any[])
-                      .filter(s => activeSession?.sales?.includes(s.id) && s.method === "Efectivo")
+                  if (!activeSession) {
+                    alert("No hay sesión activa para cerrar.");
+                    return;
+                  }
+
+                  const sales = JSON.parse(localStorage.getItem("punto_pos_sales") || "[]") as any[];
+                  const expenses = JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[];
+                  
+                  const expected = (activeSession.openingBase || 0) + 
+                    sales.filter(s => (activeSession.sales || []).includes(s.id) && s.method === "Efectivo")
                       .reduce((acc, s) => acc + s.total, 0) -
-                    (JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[])
-                      .filter(e => activeSession?.expenses?.includes(e.id))
+                    expenses.filter(e => (activeSession.expenses || []).includes(e.id))
                       .reduce((acc, e) => acc + e.amount, 0) -
-                    (activeSession?.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0);
+                    (activeSession.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0);
                   
                   const diff = Number(actualCashInRegister) - expected;
                   
