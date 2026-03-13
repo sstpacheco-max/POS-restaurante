@@ -30,6 +30,8 @@ export default function UsersPage() {
   const [salesData, setSalesData] = useState<any[]>([]);
   const [cashSessions, setCashSessions] = useState<any[]>([]);
   const [cashBaseGlobal, setCashBaseGlobal] = useState(0);
+  const [selectedSessionForReport, setSelectedSessionForReport] = useState<any>(null);
+  const [isSessionReportOpen, setIsSessionReportOpen] = useState(false);
   const [cashBaseInput, setCashBaseInput] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -463,7 +465,7 @@ export default function UsersPage() {
                       <th className="px-4 py-2 text-right">Ventas/Efect.</th>
                       <th className="px-4 py-2 text-right">Retiros</th>
                       <th className="px-4 py-2 text-right">Arqueo</th>
-                      <th className="px-4 py-2 text-right">Estado</th>
+                      <th className="px-4 py-2 text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -473,9 +475,8 @@ export default function UsersPage() {
                       </tr>
                     ) : (
                       cashSessions.filter(s => new Date(s.openingTime).toDateString() === todayStr).map((s) => {
-                        const sessSales = salesData.filter(sale => s.sales?.includes(sale.id) && sale.method === "Efectivo").reduce((acc, sale) => acc + sale.total, 0);
+                        const sessSales = salesData.filter(sale => (s.sales || []).includes(sale.id) && sale.method === "Efectivo").reduce((acc, sale) => acc + sale.total, 0);
                         const sessWithdrawals = (s.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0);
-                        const expected = s.openingBase + sessSales - sessWithdrawals;
                         return (
                           <tr key={s.id} className="border-b border-slate-100">
                             <td className="px-4 py-2">
@@ -489,14 +490,15 @@ export default function UsersPage() {
                               <div className={`font-bold ${s.status === 'closed' ? (s.closingAmount === s.expectedAmount ? "text-slate-900" : "text-red-600") : "text-blue-600"}`}>
                                 {s.status === 'closed' ? formatCOP(s.closingAmount) : "En proceso"}
                               </div>
-                              {s.status === 'closed' && s.closingAmount !== s.expectedAmount && (
-                                <div className="text-[9px] font-bold uppercase">Dif: {formatCOP(s.closingAmount - s.expectedAmount)}</div>
-                              )}
                             </td>
                             <td className="px-4 py-2 text-right">
-                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'closed' ? "bg-slate-100 text-slate-600" : "bg-blue-100 text-blue-700"}`}>
-                                 {s.status === 'closed' ? "Cerrada" : "Abierta"}
-                               </span>
+                               <button 
+                                 onClick={() => { setSelectedSessionForReport(s); setIsSessionReportOpen(true); }}
+                                 className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors border border-slate-200"
+                                 title="Ver Reporte Individual"
+                               >
+                                 <Printer size={14} />
+                               </button>
                             </td>
                           </tr>
                         );
@@ -649,6 +651,154 @@ export default function UsersPage() {
                 <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-slate-600 hover:bg-slate-200 rounded-xl font-medium transition-colors">Cancelar</button>
                 <button onClick={handleSave} className="px-5 py-2 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 shadow-md transition-colors">Guardar Usuario</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── INDIVIDUAL SESSION REPORT MODAL ─────────────────────────────────── */}
+      {isSessionReportOpen && selectedSessionForReport && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Printer size={18} /> Reporte Individual: {selectedSessionForReport.userName}
+              </h3>
+              <div className="flex items-center gap-2">
+                 <button 
+                   onClick={() => {
+                     const printContent = document.getElementById('individual-session-report');
+                     if (!printContent) return;
+                     const win = window.open("", "_blank", "width=820,height=700");
+                     if (!win) return;
+                     win.document.write(`
+                       <html><head><title>Reporte de Turno - ${selectedSessionForReport.userName}</title>
+                       <style>
+                         body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;padding:40px;font-size:12px}
+                         h1{font-size:22px;font-weight:800;margin-bottom:4px}
+                         .header{border-bottom:3px solid #0f172a;padding-bottom:15px;margin-bottom:20px;display:flex;justify-content:space-between}
+                         .section-title{font-size:14px;font-weight:700;margin:20px 0 10px;padding-bottom:5px;border-bottom:1px solid #e2e8f0;text-transform:uppercase;letter-spacing:1px}
+                         .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9}
+                         .row-total{font-weight:800;border-top:2px solid #0f172a;margin-top:10px;padding-top:10px;font-size:14px}
+                         .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+                         .kpi-box{background:#f8fafc;border:1px solid #e2e8f0;padding:15px;border-radius:10px;text-align:center}
+                         .kpi-label{font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:5px}
+                         .kpi-value{font-size:18px;font-weight:800}
+                         .footer{margin-top:50px;text-align:center;font-size:10px;color:#94a3b8}
+                         .sig-box{margin-top:60px;display:grid;grid-template-columns:1fr 1fr;gap:40px}
+                         .sig-line{border-top:1px solid #1e293b;padding-top:8px;text-align:center;font-weight:600}
+                       </style>
+                       </head><body>${printContent.innerHTML}</body></html>
+                     `);
+                     win.document.close();
+                     win.focus();
+                     setTimeout(() => win.print(), 300);
+                   }}
+                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 transition-all"
+                 >
+                   <Printer size={16} /> Imprimir / PDF
+                 </button>
+                 <button onClick={() => setIsSessionReportOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100">
+                   <X size={20} />
+                 </button>
+              </div>
+            </div>
+            
+            <div className="p-8 max-h-[70vh] overflow-y-auto" id="individual-session-report">
+               <div className="header">
+                 <div>
+                   <h1>Reporte de Turno</h1>
+                   <p style={{ color: '#64748b', fontSize: '14px' }}><b>Cajero:</b> {selectedSessionForReport.userName}</p>
+                 </div>
+                 <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
+                    <p><b>Apertura:</b> {new Date(selectedSessionForReport.openingTime).toLocaleString('es-CO')}</p>
+                    <p><b>Cierre:</b> {selectedSessionForReport.closingTime ? new Date(selectedSessionForReport.closingTime).toLocaleString('es-CO') : 'Sesión Abierta'}</p>
+                 </div>
+               </div>
+
+               <div className="kpi-grid">
+                  <div className="kpi-box">
+                    <p className="kpi-label">Ventas Totales (Turno)</p>
+                    <p className="kpi-value" style={{ color: '#0f172a' }}>
+                      {formatCOP(salesData.filter(s => (selectedSessionForReport.sales || []).includes(s.id)).reduce((acc, s) => acc + s.total, 0))}
+                    </p>
+                  </div>
+                  <div className="kpi-box" style={{ borderLeft: '4px solid #10b981' }}>
+                    <p className="kpi-label">Efectivo en Caja (Arqueo)</p>
+                    <p className="kpi-value" style={{ color: '#059669' }}>
+                      {selectedSessionForReport.status === 'closed' ? formatCOP(selectedSessionForReport.closingAmount) : 'En Proceso'}
+                    </p>
+                  </div>
+               </div>
+
+               <p className="section-title">Resumen de Movimientos</p>
+               <div className="row">
+                  <span>Base Inicial de Caja</span>
+                  <span className="font-bold">{formatCOP(selectedSessionForReport.openingBase)}</span>
+               </div>
+               <div className="row">
+                  <span>Ventas en Efectivo (+)</span>
+                  <span className="font-bold text-emerald-600">
+                    {formatCOP(salesData.filter(s => (selectedSessionForReport.sales || []).includes(s.id) && s.method === 'Efectivo').reduce((acc, s) => acc + s.total, 0))}
+                  </span>
+               </div>
+               <div className="row">
+                  <span>Ventas por Transferencia (*)</span>
+                  <span className="font-bold text-blue-600">
+                    {formatCOP(salesData.filter(s => (selectedSessionForReport.sales || []).includes(s.id) && s.method === 'Transferencia').reduce((acc, s) => acc + s.total, 0))}
+                  </span>
+               </div>
+               <div className="row">
+                  <span>Gastos Registrados (-)</span>
+                  <span className="font-bold text-red-600">
+                    {formatCOP(
+                      (JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[])
+                        .filter(e => (selectedSessionForReport.expenses || []).includes(e.id))
+                        .reduce((acc, e) => acc + e.amount, 0)
+                    )}
+                  </span>
+               </div>
+               
+               <p className="section-title">Retiros de Gerencia</p>
+               {(selectedSessionForReport.withdrawals || []).length === 0 ? (
+                 <p style={{ color: '#94a3b8', fontStyle: 'italic', padding: '10px 0' }}>No se registraron retiros en este turno.</p>
+               ) : (
+                 selectedSessionForReport.withdrawals.map((w: any, idx: number) => (
+                   <div key={idx} className="row">
+                      <span>Retiro por {w.managerName} ({new Date(w.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})</span>
+                      <span className="font-bold text-orange-600">-{formatCOP(w.amount)}</span>
+                   </div>
+                 ))
+               )}
+
+               <div className="row row-total">
+                  <span>TOTAL EFECTIVO A ENTREGAR</span>
+                  <span>
+                    {formatCOP(
+                      selectedSessionForReport.openingBase + 
+                      salesData.filter(s => (selectedSessionForReport.sales || []).includes(s.id) && s.method === 'Efectivo').reduce((acc, s) => acc + s.total, 0) -
+                      (JSON.parse(localStorage.getItem("punto_pos_expenses_v2") || "[]") as any[])
+                        .filter(e => (selectedSessionForReport.expenses || []).includes(e.id))
+                        .reduce((acc, e) => acc + e.amount, 0) -
+                      (selectedSessionForReport.withdrawals || []).reduce((acc: number, w: any) => acc + w.amount, 0)
+                    )}
+                  </span>
+               </div>
+
+               {selectedSessionForReport.status === 'closed' && (
+                 <div className="row" style={{ marginTop: '5px', border: 'none', background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+                    <span style={{ fontWeight: 600 }}>Diferencia / Descuadre de Caja:</span>
+                    <span style={{ color: selectedSessionForReport.closingAmount >= selectedSessionForReport.expectedAmount ? '#059669' : '#dc2626', fontWeight: 800 }}>
+                      {formatCOP(selectedSessionForReport.closingAmount - selectedSessionForReport.expectedAmount)}
+                    </span>
+                 </div>
+               )}
+
+               <div className="sig-box">
+                  <div className="sig-line">Firma Cajero</div>
+                  <div className="sig-line">Firma Administrador</div>
+               </div>
+               
+               <p className="footer">Generado por Punto POS - {new Date().toLocaleString()}</p>
             </div>
           </div>
         </div>
